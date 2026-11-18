@@ -295,7 +295,8 @@ Please keep this token to yourself. Contact us if you need it extended or replac
 ${S.data.contact || "TSM Model Development Team"}`;
 }
 
-const shared = (t) => S.data.tokens.filter((x) => x.jti === t.jti && x.email !== t.email);
+// Other people on the same token id whose token still works (expired ones no longer matter).
+const shared = (t) => S.data.tokens.filter((x) => x.jti === t.jti && x.email !== t.email && x.status !== "expired");
 function openToken(jti, email) {
   const t = S.data.tokens.find((x) => x.jti === jti && (!email || x.email.toLowerCase() === email.toLowerCase()))
     || S.data.tokens.find((x) => x.jti === jti);
