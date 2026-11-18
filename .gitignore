@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.vercel/
+.env
+.env.*
+# never commit signing material or token lists here
+*.bin
+*.pem
+issued_tokens*.csv
+tsm_tokens_*.csv
