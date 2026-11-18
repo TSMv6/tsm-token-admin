@@ -110,7 +110,14 @@ async function checkManifest() {
 
 // ---------------------------------------------------------------- login
 function renderLogin() {
-  const denied = new URLSearchParams(location.search).get("denied");
+  const qs = new URLSearchParams(location.search);
+  const denied = qs.get("denied");
+  const LOGIN_ERR = {
+    expired: "That sign-in took too long or was started in another tab. Please sign in again.",
+    github: "GitHub did not complete the sign-in. Please try again.",
+    config: "Sign-in is not fully set up yet (TSM_SESSION_SECRET is missing on the server). Ask the owner to add it in Vercel and redeploy.",
+  };
+  const loginErr = LOGIN_ERR[qs.get("login_error")] || "";
   $("#app").innerHTML = h`
   <div class="login-wrap">
     <div class="card login">
@@ -118,6 +125,7 @@ function renderLogin() {
       <h1>TSM Token Manager</h1>
       <p>Issue and revoke TSM model access tokens.<br>Approved managers only.</p>
       ${denied ? `<div class="banner bad" style="text-align:left">GitHub account <b>${esc(denied)}</b> is not an approved manager. Ask the owner to add you, then sign in again.</div>` : ""}
+      ${loginErr ? `<div class="banner warn" style="text-align:left">${esc(loginErr)}</div>` : ""}
       <a class="btn github" href="/api?op=login">${ICON.gh} Sign in with GitHub</a>
       <div class="foot">Access is limited to GitHub accounts approved by the TSM owner.</div>
     </div>

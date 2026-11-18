@@ -575,18 +575,24 @@ def _auth_login(cfg, environ):
     url = "https://github.com/login/oauth/authorize?" + urllib.parse.urlencode({
         "client_id": cfg.gh_client_id, "state": state,
         "allow_signup": "false"})  # no scope = public profile only (just the login name)
-    return "302 Found", [("Location", url), _set_cookie("tsm_oauth_state", state, 600, True)], b""
+    return "302 Found", [("Location", url), _set_cookie("tsm_oauth_state", state, 1800, True)], b""
 
 
 def _auth_callback(cfg, environ, q):
+    def back(reason):  # friendly return to the sign-in page instead of raw JSON
+        return "302 Found", [("Location", "/?login_error=" + reason),
+                             _set_cookie("tsm_oauth_state", "", 0, True)], b""
+
+    if len(cfg.session_secret) < 16:
+        return back("config")
     state = q.get("state", [""])[0]
     if not state or not hmac.compare_digest(state, _cookies(environ).get("tsm_oauth_state", "")):
-        raise HttpError(400, "Login expired or invalid - please try again.")
+        return back("expired")
     tok = _gh_json("https://github.com/login/oauth/access_token", {
         "client_id": cfg.gh_client_id, "client_secret": cfg.gh_client_secret,
         "code": q.get("code", [""])[0]})
     if "access_token" not in tok:
-        raise HttpError(400, "GitHub did not accept the login - please try again.")
+        return back("github")
     gh = _gh_json("https://api.github.com/user", token=tok["access_token"])
     user = {"login": gh["login"], "name": gh.get("name") or gh["login"], "avatar": gh.get("avatar_url", "")}
     login = user["login"].lower()
