@@ -86,14 +86,18 @@ def decode_token(token: str, public_key: bytes):
     return claims, ed25519.verify(public_key, payload, sig)
 
 
-def next_jti(rows, year: int | None = None) -> str:
+def next_jti(rows, year: int | None = None, series: str = "") -> str:
+    """Next id in a series: hosted app -> tsm-2026-0031, local emergency copy
+    (series "L") -> tsm-2026-L0001. Separate series can never collide, even if
+    the local copy was out of date when it issued (the cause of the duplicate
+    ids 0008-0010, issued from two machines with their own CSVs)."""
     year = year or date.today().year
     maxn = 0
     for r in rows:
-        m = re.match(rf"tsm-{year}-(\d+)$", (r.get("jti") or "").strip())
+        m = re.match(rf"tsm-{year}-{series}(\d+)$", (r.get("jti") or "").strip())
         if m:
             maxn = max(maxn, int(m.group(1)))
-    return f"tsm-{year}-{maxn + 1:04d}"
+    return f"tsm-{year}-{series}{maxn + 1:04d}"
 
 
 def status(row) -> str:

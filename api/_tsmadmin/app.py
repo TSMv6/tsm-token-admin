@@ -58,6 +58,8 @@ class Config:
         self.gh_client_id = e.get("GITHUB_CLIENT_ID", "")
         self.gh_client_secret = e.get("GITHUB_CLIENT_SECRET", "")
         self.local_user = e.get("TSM_LOCAL_USER") or os.environ.get("USERNAME") or "local-owner"
+        # Local emergency copy issues from its own id series (tsm-YYYY-L0001...).
+        self.jti_series = e.get("TSM_JTI_SERIES", "L" if self.mode == "local" else "")
         if self.mode == "local":
             self.store = LocalStore(e.get("TSM_LOCAL_REGISTRY_DIR", "../tsm-token-registry"),
                                     e.get("TSM_LOCAL_MANIFEST", "../tsm-auth-endpoint/public/tsm_manifest.json"))
@@ -258,7 +260,7 @@ def op_state(cfg, user, body, q):
         "audit": st.audit[-2000:],
         "version": st.version,
         "today": T.today(),
-        "next_jti": T.next_jti(st.tokens),
+        "next_jti": T.next_jti(st.tokens, series=cfg.jti_series),
         "default_expiry": cfg.default_expiry or f"{int(T.today()[:4]) + 1}-12-31",
         "contact": cfg.contact,
     }
@@ -276,7 +278,9 @@ def op_issue(cfg, user, body, q):
     seed = cfg.seed()
 
     def fn(st):
-        jti = T.next_jti(st.tokens)
+        jti = T.next_jti(st.tokens, series=cfg.jti_series)
+        if any(r.get("jti") == jti for r in st.tokens):  # belt and braces
+            raise HttpError(409, f"Token id {jti} already exists; please try again.")
         tok = T.make_token(seed, email, expires, jti)
         row = {"name": name, "email": email, "tool": "*", "jti": jti, "issued": T.today(),
                "expires": expires, "revoked": "", "token": tok, "issued_by": user["login"],
