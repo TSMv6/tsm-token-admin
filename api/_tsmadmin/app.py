@@ -570,9 +570,10 @@ def _auth_login(cfg, environ):
     if not cfg.gh_client_id:
         raise HttpError(500, "GitHub login is not configured.")
     state = secrets.token_urlsafe(24)
-    redirect = _base_url(environ) + "/api?op=callback"
+    # No redirect_uri: GitHub returns to the app's registered callback URL
+    # (https://<host>/api) exactly, and handle() treats ?code=&state= as the callback.
     url = "https://github.com/login/oauth/authorize?" + urllib.parse.urlencode({
-        "client_id": cfg.gh_client_id, "redirect_uri": redirect, "state": state,
+        "client_id": cfg.gh_client_id, "state": state,
         "scope": "read:user", "allow_signup": "false"})
     return "302 Found", [("Location", url), _set_cookie("tsm_oauth_state", state, 600, True)], b""
 
@@ -583,7 +584,7 @@ def _auth_callback(cfg, environ, q):
         raise HttpError(400, "Login expired or invalid - please try again.")
     tok = _gh_json("https://github.com/login/oauth/access_token", {
         "client_id": cfg.gh_client_id, "client_secret": cfg.gh_client_secret,
-        "code": q.get("code", [""])[0], "redirect_uri": _base_url(environ) + "/api?op=callback"})
+        "code": q.get("code", [""])[0]})
     if "access_token" not in tok:
         raise HttpError(400, "GitHub did not accept the login - please try again.")
     gh = _gh_json("https://api.github.com/user", token=tok["access_token"])
@@ -636,6 +637,8 @@ def handle(environ, cfg=None):
     cfg = cfg or get_config()
     q = urllib.parse.parse_qs(environ.get("QUERY_STRING", ""))
     op = q.get("op", [""])[0]
+    if not op and "code" in q and "state" in q:
+        op = "callback"  # GitHub OAuth return to the registered callback URL
     method = environ.get("REQUEST_METHOD", "GET")
     try:
         if op == "login":
