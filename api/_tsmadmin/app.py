@@ -574,7 +574,7 @@ def _auth_login(cfg, environ):
     # (https://<host>/api) exactly, and handle() treats ?code=&state= as the callback.
     url = "https://github.com/login/oauth/authorize?" + urllib.parse.urlencode({
         "client_id": cfg.gh_client_id, "state": state,
-        "scope": "read:user", "allow_signup": "false"})
+        "allow_signup": "false"})  # no scope = public profile only (just the login name)
     return "302 Found", [("Location", url), _set_cookie("tsm_oauth_state", state, 600, True)], b""
 
 
